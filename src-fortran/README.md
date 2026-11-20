@@ -84,3 +84,8 @@ against it. It needs only the model's tokenizer files:
 $ make fortran-tokenizer-test MODEL_DIR="$MODEL_DIR"                   # LFortran
 $ pixi run -e fortran-precision tokenizer-test "$MODEL_DIR"            # GFortran and Flang
 ```
+
+
+## TODOs
+- **Batched prefill (`GEMM`):** Implement a pure ISO Fortran (`do concurrent`) quantized `q8` GEMM kernel with zero external dependencies (no BLAS/OpenMP), structured for SIMD/AVX vectorization (`-march=native` / `--fast`) on `lfortran` and `gfortran` (plus optional vendor BLAS crossover benchmarks).
+- **`nvfortran` compatibility:** Fix compilation/offload issues on `nvfortran`.
