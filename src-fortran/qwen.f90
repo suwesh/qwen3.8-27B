@@ -6,9 +6,9 @@
 ! Pipeline: tokenizer -> chat template -> one token at a time through the model on the GPU (the prompt
 ! too) -> greedy decoding -> detokenize and print as we go.
 module model
-    use, intrinsic :: iso_fortran_env, only: int16, int32, int64, real64
+    use, intrinsic :: iso_fortran_env, only: int16, int32, int64, real64, real32
     use model_io_support, only: io_error
-    use safetensors_io, only: tensor_archive, open_archive, find_tensor, read_u32, read_bf16
+    use safetensors_io, only: tensor_archive, open_archive, find_tensor, read_u32, read_bf16, read_f32
     use qwen_config, only: dense_config, read_config
     use kernels
     implicit none
@@ -94,6 +94,22 @@ contains
         v(1:n) = bf(h)
     end subroutine
 
+    subroutine vec_f32(name, n, v)
+        character(*), intent(in) :: name
+        integer, intent(in) :: n
+        real(real32), allocatable, intent(out) :: v(:)
+        real(real32), allocatable :: x(:)
+        type(io_error) :: e
+        allocate(x(n))
+        allocate(v(int(pad(n), int32)))
+        call read_f32(archive%tensor(tensor(name)), x, e)
+        call check(e)
+
+        v = 0.0
+        v(1:n) = real(x, kind=kind(v))
+        deallocate(x)
+    end subroutine
+
     ! The q8 matrices `names` (same K), stacked along N into one matrix, so one GEMV computes them all.
     subroutine load_q8(names, k, m)
         character(*), intent(in) :: names(:)
@@ -158,7 +174,11 @@ contains
                 error stop 'unsupported model dimensions'
             h = c%hidden
             call load_q8([P//'.embed_tokens'], h, w%embed)
-            call load_q8(['language_model.lm_head'], h, w%lm_head)
+            if (find_tensor(archive, 'language_model.lm_head.weight') /= 0) then
+                call load_q8(['language_model.lm_head'], h, w%lm_head)
+            else
+                call load_q8([P//'.embed_tokens'], h, w%lm_head)
+            end if
             call vec(P//'.norm.weight', h, w%final_norm)
             if (c%layers > max_layers) error stop 'too many layers'
             do l = 1, c%layers
@@ -179,7 +199,7 @@ contains
                         allocate(y%conv_w(c%conv_kernel, c%conv_dim))
                         y%conv_w = reshape(bf(cw), [c%conv_kernel, c%conv_dim])   ! oldest input first
                         deallocate(cw)
-                        call vec(a//'.linear_attn.A_log', c%linear_value_heads, y%a_log)
+                        call vec_f32(a//'.linear_attn.A_log', c%linear_value_heads, y%a_log)
                         call vec(a//'.linear_attn.dt_bias', c%linear_value_heads, y%dt_bias)
                         call vec(a//'.linear_attn.norm.weight', c%linear_value_head_dim, y%norm_w)
                     else

@@ -1,11 +1,11 @@
 module safetensors_io
-    use, intrinsic :: iso_fortran_env, only: int16, int32, int64
+    use, intrinsic :: iso_fortran_env, only: int16, int32, int64, real32
     use model_io_support
     use json_tokens
     implicit none
     private
     public :: tensor_archive, open_archive, find_tensor
-    public :: read_bf16, read_u32
+    public :: read_bf16, read_u32, read_f32
 
     type :: tensor_info
         character(:), allocatable :: name, path, dtype
@@ -24,6 +24,9 @@ module safetensors_io
     end interface
     interface read_u32
         module procedure read_u32_flat, read_u32_matrix
+    end interface
+    interface read_f32
+        module procedure read_f32_flat
     end interface
 
 contains
@@ -125,8 +128,11 @@ contains
             case ('U32')
                 item_bytes=4
                 if (len(tensors(i)%dtype) /= 3) call fail(error, 'unsupported tensor dtype: '//tensors(i)%name)
+            case ('F32')
+                item_bytes=4
+                if (len(tensors(i)%dtype) /= 3) call fail(error, 'unsupported tensor dtype: '//tensors(i)%name)
             case default
-                call fail(error, 'unsupported tensor dtype (expected BF16 or U32): '//tensors(i)%name)
+                call fail(error, 'unsupported tensor dtype (expected BF16 or U32 or F32): '//tensors(i)%name)
                 return
             end select
             if (error%failed()) return
@@ -348,8 +354,15 @@ contains
             call fail(error, 'payload range exceeds tensor elements')
             return
         end if
-        width=2
-        if (dtype == 'U32') width=4
+        select case (dtype)
+        case ('BF16')
+            width=2
+        case ('U32', 'F32')
+            width=4
+        case default
+            call fail(error, 'unsupported payload dtype: '//tensor%name)
+            return
+        end select
         bytes=checked_multiply(tensor%elements,width,error)
         if (bytes /= tensor%nbytes) call fail(error, 'payload descriptor bytecount mismatch')
         tensor_finish=checked_add(tensor%byte_offset,tensor%nbytes,error)
@@ -437,6 +450,22 @@ contains
         close(unit)
     end subroutine
 
+    subroutine read_f32_flat(tensor, values, error)
+        type(tensor_info), intent(in) :: tensor
+        real(real32), intent(out) :: values(:)
+        type(io_error), intent(out) :: error
+        integer :: unit, ios
+        integer(int64) :: position, count
+        count=size(values,kind=int64)
+        call payload_unit(tensor,'F32',count,unit,position,error)
+        if (error%failed()) return
+        read(unit,pos=position,iostat=ios) values
+        if (ios /= 0) then
+            call fail(error, 'truncated/read error in F32 payload: '//tensor%name)
+        end if
+        close(unit)
+    end subroutine
+
     subroutine require_layout(tensor, fortran_shape, error)
         type(tensor_info), intent(in) :: tensor
         integer(int64), intent(in) :: fortran_shape(:)
@@ -477,4 +506,5 @@ contains
         flat(1:size(values,kind=int64)) => values
         call read_u32_flat(tensor,flat,error)
     end subroutine
+
 end module
