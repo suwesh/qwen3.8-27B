@@ -1,0 +1,8 @@
+prompt ids (22): 248045 846 198 3710 369 279 6511 314 9338 30 21134 25899 13 248046 198 248045 74455 198 248068 271 248069 271
+embed w shape: 256 248320
+lm_head w shape: 256 248320
+embed s shape: 16 248320
+lm_head s shape: 16 248320
+loading layer 1/24Fortran A_log first 8:   2.5781250E-01  -2.0312500E+00  -2.1250000E+00  -5.6640625E-01  -2.6093750E+00  -2.2500000E+00  -1.8046875E+00  -2.9843750E+00
+loading layer 2/24loading layer 3/24loading layer 4/24loading layer 5/24loading layer 6/24loading layer 7/24loading layer 8/24loading layer 9/24loading layer 10/24loading layer 11/24loading layer 12/24loading layer 13/24loading layer 14/24loading layer 15/24loading layer 16/24loading layer 17/24loading layer 18/24loading layer 19/24loading layer 20/24loading layer 21/24loading layer 22/24loading layer 23/24loading layer 24/24
+tokenizer .5 s, weights + state in 17.4 s, prompt 22 tokens

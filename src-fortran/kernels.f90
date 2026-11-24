@@ -34,7 +34,7 @@ module kernels
 
     integer, parameter :: GD = 128   ! linear attention key/value head dim
     integer, parameter :: HD = 256   ! full attention head dim
-    integer, parameter :: AG = 6     ! full attention query heads per kv head
+    integer, parameter :: AG = 4     ! full attention query heads per kv head - suwesh changed this hardcoded value for 27b model to hardcoded value for 0.8b model
     integer, parameter :: AC = 8     ! positions per chunk of the attention (attn_part)
     integer, parameter :: AMAX = 8192 ! the most positions of the attention (attn_combine)
 

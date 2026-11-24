@@ -1,0 +1,5 @@
+prompt ids (22): 248045 846 198 3710 369 279 6511 314 9338 30 21134 25899 13 248046 198 248045 74455 198 248068 271 248069 271
+loading layer 1/24loading layer 2/24loading layer 3/24loading layer 4/24loading layer 5/24loading layer 6/24loading layer 7/24loading layer 8/24loading layer 9/24loading layer 10/24loading layer 11/24loading layer 12/24loading layer 13/24loading layer 14/24loading layer 15/24loading layer 16/24loading layer 17/24loading layer 18/24loading layer 19/24loading layer 20/24loading layer 21/24loading layer 22/24loading layer 23/24loading layer 24/24
+tokenizer .3 s, weights + state in 10.1 s, prompt 22 tokens
+output ids (16): 90562 116148 50657 109968 25253 14321 90562 14321 14321 90562 28205 148724 95 78347 14321 14321
+prefill: 22 tokens in 26.222 s (.8 tok/s); decode: 15 tokens in .482 s (31.1 tok/s)

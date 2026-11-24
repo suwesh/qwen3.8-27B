@@ -179,6 +179,10 @@ contains
             else
                 call load_q8([P//'.embed_tokens'], h, w%lm_head)
             end if
+            ! write(0, '(a,2(1x,i0))') 'embed w shape:', shape(w%embed%w)
+            ! write(0, '(a,2(1x,i0))') 'lm_head w shape:', shape(w%lm_head%w)
+            ! write(0, '(a,2(1x,i0))') 'embed s shape:', shape(w%embed%s)
+            ! write(0, '(a,2(1x,i0))') 'lm_head s shape:', shape(w%lm_head%s)
             call vec(P//'.norm.weight', h, w%final_norm)
             if (c%layers > max_layers) error stop 'too many layers'
             do l = 1, c%layers
@@ -200,6 +204,10 @@ contains
                         y%conv_w = reshape(bf(cw), [c%conv_kernel, c%conv_dim])   ! oldest input first
                         deallocate(cw)
                         call vec_f32(a//'.linear_attn.A_log', c%linear_value_heads, y%a_log)
+                        ! if (l == 1) then
+                        !     write(0, '(a,8(1x,es15.7))') &
+                        !    'Fortran A_log first 8:', y%a_log(1:8)
+                        ! end if
                         call vec(a//'.linear_attn.dt_bias', c%linear_value_heads, y%dt_bias)
                         call vec(a//'.linear_attn.norm.weight', c%linear_value_head_dim, y%norm_w)
                     else
@@ -260,10 +268,18 @@ contains
         type(weights), intent(in) :: w
         type(state), intent(inout) :: s
         integer, intent(in) :: pos
-        integer :: l
+        integer :: l! , debug_h, debug_d, debug_heads, debug_dim
+        ! real :: debug_norm
         associate (c => w%c)
             s%k = 3 - s%k
             call embed(w%embed%w, w%embed%s, w%embed%b, s%tokbuf, w%l(1)%in_norm, s%x, s%xw, s%ss, s%k)
+            ! if (pos == 21) then
+            !     write(0, '(a,8(1x,es16.8))') &
+            !     'embedding_residual', s%x(1:8)
+
+            !     write(0, '(a,8(1x,es16.8))') &
+            !     'embedding_normalized', s%xw(1:8)
+            ! end if
             do l = 1, c%layers
                 associate (y => w%l(l), t => s%l(l))
                     call k_gemv_norm(y%in_proj, s%xw, s%ss, s%k, c%rms_eps, .false., s%y)   ! y = W_in rmsnorm(x)
@@ -275,6 +291,35 @@ contains
                             s%pm, s%pl, s%pa)
                         call attn_combine(s%y, s%pm, s%pl, s%pa, pos, s%o)
                     end if
+                    !if (pos == 21) then
+                    !    if (y%linear) then
+                    !        debug_dim = c%linear_value_head_dim
+                    !        debug_heads = c%linear_value_heads
+                    !    else
+                    !    debug_dim = c%head_dim
+                    !    debug_heads = c%query_heads
+                    !end if
+
+                    !do debug_h = 1, debug_heads
+                    !    debug_norm = 0.0
+
+                    !    do debug_d = 1, debug_dim
+                    !        debug_norm = debug_norm + &
+                    !        s%o((debug_h-1)*debug_dim + debug_d)**2
+                    !    end do
+
+                    !    debug_norm = sqrt(debug_norm)
+
+                    !    write(0, '(a,i2.2,a,i2.2,a,l1,a,es16.8,a,4(1x,es16.8))') &
+                    !        'HEAD layer=', l-1, &
+                    !        ' head=', debug_h-1, &
+                    !        ' linear=', y%linear, &
+                    !        ' norm=', debug_norm, &
+                    !        ' first4=', &
+                    !        s%o((debug_h-1)*debug_dim+1: &
+                    !            (debug_h-1)*debug_dim+4)
+                    !    end do
+                    !end if
                     s%k = 3 - s%k
                     call k_gemv_resid(y%out_proj, s%o, y%post_norm, s%x, s%xw, s%ss, s%k)                ! x += W_out o
                     call k_gemv_norm(y%gate_up, s%xw, s%ss, s%k, c%rms_eps, .true., s%mid)          ! mid = silu(gate) * up
@@ -284,9 +329,30 @@ contains
                     else
                         call k_gemv_resid(y%down, s%mid, w%final_norm, s%x, s%xw, s%ss, s%k)
                     end if
+                    !if (pos == 21) then
+                    !    write(0, '(a,i2.2,8(1x,es16.8))') &
+                    !   'LAYER layer=', l-1, s%x(1:8)
+                    !end if
                 end associate
             end do
+            !if (pos == 21) then
+            !    write(0, '(a,8(1x,es16.8))') &
+            !        'final_normalized', s%xw(1:8)
+            !end if
             call k_gemv_norm(w%lm_head, s%xw, s%ss, s%k, c%rms_eps, .false., s%logits)
+            !if (pos == 21) then
+            !    write(0, '(a,8(1x,es15.7))') &
+            !        'final xw first 8:', s%xw(1:8)
+
+            !    write(0, '(a,8(1x,es15.7))') &
+            !        'logits first 8:', s%logits(1:8)
+
+            !    write(0, '(a,es15.7)') &
+            !        'logit token 43:', s%logits(43+1)
+
+            !    write(0, '(a,es15.7)') &
+            !        'logit token 90562:', s%logits(90562+1)
+            !end if
             call argmax_part(s%logits, np, s%pv, s%pi)
             call argmax_final(s%pv, s%pi, np, pos, s%tokbuf, s%hist)
         end associate
